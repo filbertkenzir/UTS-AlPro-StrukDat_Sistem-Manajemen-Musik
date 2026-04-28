@@ -1,0 +1,526 @@
+PROGRAM SISTEM_MANAJEMEN_PLAYLIST_DAN_MUSIK
+
+TIPE Song:
+    id: integer
+    judul: string
+    artis: string
+    genre: string
+    durasi: integer
+    rating: integer
+    next: Song*
+    prev: Song*
+    dnext: Song*
+    cnext: Song*
+
+TIPE QueueNode:
+    lagu: Song*
+    prioritas: integer
+    next: QueueNode*
+
+TIPE StackNode:
+    lagu: Song*
+    next: StackNode*
+
+VARIABEL GLOBAL:
+    libraryHead: Song* <- null
+    playlistHead: Song* <- null
+    playlistTail: Song* <- null
+    circularHead: Song* <- null
+    currentCircular: Song* <- null
+    queueHead: QueueNode* <- null
+    stackTop: StackNode* <- null
+    songIdCounter: integer <- 1
+
+PROSEDUR CetakGaris()
+    TULIS "--------------------------------------------"
+ENDPROSEDUR
+
+PROSEDUR CetakLagu(s: Song*)
+    TULIS "[" + s.id + "] " + s.judul + " - " + s.artis + " | " + s.genre + " | " + (s.durasi/60) + ":" + (s.durasi%60) + " | Rating: " + s.rating + "/5"
+ENDPROSEDUR
+
+PROSEDUR TelusuriLibrary(head: Song*, aksi: prosedur(Song*))
+    curr <- head
+    SELAMA curr != null LAKUKAN
+        aksi(curr)
+        curr <- curr.next
+    AKHIRSELAMA
+ENDPROSEDUR
+
+PROSEDUR AksiPrint(s: Song*)
+    CetakLagu(s)
+ENDPROSEDUR
+
+FUNGSI CariLaguByJudul(keyword: string, aksi: prosedur(Song*)) -> integer
+    ditemukan <- 0
+    kw <- ToLower(keyword)
+    curr <- libraryHead
+    SELAMA curr != null LAKUKAN
+        t <- ToLower(curr.judul)
+        JIKA Contains(t, kw) MAKA
+            aksi(curr)
+            ditemukan <- ditemukan + 1
+        ENDJIKA
+        curr <- curr.next
+    AKHIRSELAMA
+    KEMBALIKAN ditemukan
+ENDFUNGSI
+
+FUNGSI CariLaguByArtis(keyword: string, aksi: prosedur(Song*)) -> integer
+    ditemukan <- 0
+    kw <- ToLower(keyword)
+    curr <- libraryHead
+    SELAMA curr != null LAKUKAN
+        a <- ToLower(curr.artis)
+        JIKA Contains(a, kw) MAKA
+            aksi(curr)
+            ditemukan <- ditemukan + 1
+        ENDJIKA
+        curr <- curr.next
+    AKHIRSELAMA
+    KEMBALIKAN ditemukan
+ENDFUNGSI
+
+FUNGSI CariLaguById(id: integer) -> Song*
+    curr <- libraryHead
+    SELAMA curr != null LAKUKAN
+        JIKA curr.id = id MAKA
+            KEMBALIKAN curr
+        ENDJIKA
+        curr <- curr.next
+    AKHIRSELAMA
+    KEMBALIKAN null
+ENDFUNGSI
+
+PROSEDUR TambahKeLibrary(judul: string, artis: string, genre: string, durasi: integer, rating: integer = 3)
+    newSong <- ALLOKASI Song
+    newSong.id <- songIdCounter
+    songIdCounter <- songIdCounter + 1
+    newSong.judul <- judul
+    newSong.artis <- artis
+    newSong.genre <- genre
+    newSong.durasi <- durasi
+    newSong.rating <- rating
+    newSong.next <- null
+    newSong.prev <- null
+    newSong.dnext <- null
+    newSong.cnext <- null
+
+    JIKA libraryHead = null MAKA
+        libraryHead <- newSong
+    SELAINNYA
+        curr <- libraryHead
+        SELAMA curr.next != null LAKUKAN
+            curr <- curr.next
+        AKHIRSELAMA
+        curr.next <- newSong
+    ENDJIKA
+ENDPROSEDUR
+
+PROSEDUR HapusDariLibrary(id: integer)
+    JIKA libraryHead = null MAKA
+        TULIS "Library kosong."
+        KELUAR
+    ENDJIKA
+
+    curr <- libraryHead
+    prev <- null
+    SELAMA curr != null DAN curr.id != id LAKUKAN
+        prev <- curr
+        curr <- curr.next
+    AKHIRSELAMA
+
+    JIKA curr = null MAKA
+        TULIS "Lagu tidak ditemukan."
+        KELUAR
+    ENDJIKA
+
+    JIKA prev = null MAKA
+        libraryHead <- curr.next
+    SELAINNYA
+        prev.next <- curr.next
+    ENDJIKA
+
+    HAPUS curr
+ENDPROSEDUR
+
+PROSEDUR TampilLibrary()
+    JIKA libraryHead = null MAKA
+        TULIS "Library kosong."
+        KELUAR
+    ENDJIKA
+    TULIS "=== LIBRARY LAGU ==="
+    TelusuriLibrary(libraryHead, AksiPrint)
+    CetakGaris()
+ENDPROSEDUR
+
+PROSEDUR TambahKePlaylist(songId: integer)
+    original <- CariLaguById(songId)
+    JIKA original = null MAKA
+        TULIS "Lagu tidak ada di library."
+        KELUAR
+    ENDJIKA
+
+    node <- ALLOKASI Song
+    SALIN node <- original
+    node.prev <- null
+    node.dnext <- null
+    node.next <- null
+    node.cnext <- null
+
+    JIKA playlistHead = null MAKA
+        playlistHead <- node
+        playlistTail <- node
+    SELAINNYA
+        node.prev <- playlistTail
+        playlistTail.dnext <- node
+        playlistTail <- node
+    ENDJIKA
+ENDPROSEDUR
+
+PROSEDUR HapusDariPlaylist(songId: integer)
+    curr <- playlistHead
+    SELAMA curr != null DAN curr.id != songId LAKUKAN
+        curr <- curr.dnext
+    AKHIRSELAMA
+
+    JIKA curr = null MAKA
+        TULIS "Lagu tidak ada di playlist."
+        KELUAR
+    ENDJIKA
+
+    JIKA curr.prev != null MAKA
+        curr.prev.dnext <- curr.dnext
+    SELAINNYA
+        playlistHead <- curr.dnext
+    ENDJIKA
+
+    JIKA curr.dnext != null MAKA
+        curr.dnext.prev <- curr.prev
+    SELAINNYA
+        playlistTail <- curr.prev
+    ENDJIKA
+
+    HAPUS curr
+ENDPROSEDUR
+
+PROSEDUR TampilPlaylist()
+    JIKA playlistHead = null MAKA
+        TULIS "Playlist kosong."
+        KELUAR
+    ENDJIKA
+    curr <- playlistHead
+    i <- 1
+    SELAMA curr != null LAKUKAN
+        TULIS i + ". "
+        CetakLagu(curr)
+        i <- i + 1
+        curr <- curr.dnext
+    AKHIRSELAMA
+    CetakGaris()
+ENDPROSEDUR
+
+PROSEDUR PushHistory(s: Song*)
+    node <- ALLOKASI StackNode
+    node.lagu <- s
+    node.next <- stackTop
+    stackTop <- node
+ENDPROSEDUR
+
+PROSEDUR PopHistory()
+    JIKA stackTop = null MAKA
+        KELUAR
+    ENDJIKA
+    tmp <- stackTop
+    TULIS "Lagu yang di-pop dari riwayat: "
+    CetakLagu(tmp.lagu)
+    stackTop <- stackTop.next
+    HAPUS tmp
+ENDPROSEDUR
+
+PROSEDUR PlaylistNext(VAR current: Song*)
+    JIKA current = null ATAU current.dnext = null MAKA
+        TULIS "Sudah di lagu terakhir playlist."
+        KELUAR
+    ENDJIKA
+    current <- current.dnext
+    CetakLagu(current)
+ENDPROSEDUR
+
+PROSEDUR PlaylistPrev(VAR current: Song*)
+    JIKA current = null ATAU current.prev = null MAKA
+        TULIS "Sudah di lagu pertama playlist."
+        KELUAR
+    ENDJIKA
+    current <- current.prev
+    CetakLagu(current)
+ENDPROSEDUR
+
+PROSEDUR BuildCircularDariPlaylist()
+    circularHead <- null
+    currentCircular <- null
+
+    JIKA playlistHead = null MAKA
+        TULIS "Playlist kosong."
+        KELUAR
+    ENDJIKA
+
+    tail <- null
+    src <- playlistHead
+    SELAMA src != null LAKUKAN
+        node <- ALLOKASI Song
+        SALIN node <- src
+        node.cnext <- null
+
+        JIKA circularHead = null MAKA
+            circularHead <- node
+            tail <- node
+        SELAINNYA
+            tail.cnext <- node
+            tail <- node
+        ENDJIKA
+        src <- src.dnext
+    AKHIRSELAMA
+
+    tail.cnext <- circularHead
+    currentCircular <- circularHead
+ENDPROSEDUR
+
+PROSEDUR PlayNextCircular()
+    JIKA currentCircular = null MAKA
+        TULIS "Circular mode belum aktif."
+        KELUAR
+    ENDJIKA
+    CetakLagu(currentCircular)
+    currentCircular <- currentCircular.cnext
+    PushHistory(currentCircular)
+ENDPROSEDUR
+
+PROSEDUR Enqueue(songId: integer)
+    s <- CariLaguById(songId)
+    JIKA s = null MAKA
+        TULIS "Lagu tidak ditemukan."
+        KELUAR
+    ENDJIKA
+
+    newNode <- ALLOKASI QueueNode
+    newNode.lagu <- s
+    newNode.prioritas <- s.rating
+    newNode.next <- null
+
+    JIKA queueHead = null ATAU newNode.prioritas > queueHead.prioritas MAKA
+        newNode.next <- queueHead
+        queueHead <- newNode
+    SELAINNYA
+        curr <- queueHead
+        SELAMA curr.next != null DAN curr.next.prioritas >= newNode.prioritas LAKUKAN
+            curr <- curr.next
+        AKHIRSELAMA
+        newNode.next <- curr.next
+        curr.next <- newNode
+    ENDJIKA
+ENDPROSEDUR
+
+PROSEDUR Dequeue()
+    JIKA queueHead = null MAKA
+        TULIS "Antrian kosong."
+        KELUAR
+    ENDJIKA
+    front <- queueHead
+    queueHead <- queueHead.next
+    PushHistory(front.lagu)
+    CetakLagu(front.lagu)
+    HAPUS front
+ENDPROSEDUR
+
+PROSEDUR TampilQueue()
+    JIKA queueHead = null MAKA
+        TULIS "Antrian kosong."
+        KELUAR
+    ENDJIKA
+    curr <- queueHead
+    i <- 1
+    SELAMA curr != null LAKUKAN
+        TULIS i + ". [Prioritas " + curr.prioritas + "] "
+        CetakLagu(curr.lagu)
+        i <- i + 1
+        curr <- curr.next
+    AKHIRSELAMA
+    CetakGaris()
+ENDPROSEDUR
+
+PROSEDUR TampilHistory()
+    JIKA stackTop = null MAKA
+        TULIS "Riwayat kosong."
+        KELUAR
+    ENDJIKA
+    curr <- stackTop
+    i <- 1
+    SELAMA curr != null LAKUKAN
+        TULIS i + ". "
+        CetakLagu(curr.lagu)
+        i <- i + 1
+        curr <- curr.next
+    AKHIRSELAMA
+    CetakGaris()
+ENDPROSEDUR
+
+PROSEDUR Cleanup()
+    curr <- libraryHead
+    SELAMA curr != null LAKUKAN
+        tmp <- curr.next
+        HAPUS curr
+        curr <- tmp
+    AKHIRSELAMA
+
+    pc <- playlistHead
+    SELAMA pc != null LAKUKAN
+        tmp <- pc.dnext
+        HAPUS pc
+        pc <- tmp
+    AKHIRSELAMA
+
+    JIKA circularHead != null MAKA
+        cc <- circularHead
+        tail <- circularHead
+        SELAMA tail.cnext != circularHead LAKUKAN
+            tail <- tail.cnext
+        AKHIRSELAMA
+        tail.cnext <- null
+        SELAMA cc != null LAKUKAN
+            tmp <- cc.cnext
+            HAPUS cc
+            cc <- tmp
+        AKHIRSELAMA
+    ENDJIKA
+
+    qc <- queueHead
+    SELAMA qc != null LAKUKAN
+        tmp <- qc.next
+        HAPUS qc
+        qc <- tmp
+    AKHIRSELAMA
+
+    sc <- stackTop
+    SELAMA sc != null LAKUKAN
+        tmp <- sc.next
+        HAPUS sc
+        sc <- tmp
+    AKHIRSELAMA
+ENDPROSEDUR
+
+FUNGSI InputLine(prompt: string) -> string
+    TULIS prompt
+    BACA baris
+    KEMBALIKAN baris
+ENDFUNGSI
+
+ALGORITMA UTAMA
+    TambahKeLibrary("Bohemian Rhapsody", "Queen", "Rock", 354, 5)
+    TambahKeLibrary("Blinding Lights", "The Weeknd", "Pop", 200, 4)
+    TambahKeLibrary("Shape of You", "Ed Sheeran", "Pop", 234, 4)
+    TambahKeLibrary("Stairway to Heaven", "Led Zeppelin", "Rock", 482, 5)
+    TambahKeLibrary("Levitating", "Dua Lipa", "Pop", 203, 3)
+    TambahKeLibrary("Smells Like Teen", "Nirvana", "Grunge", 301, 4)
+
+    currentSong <- null
+    choice <- -1
+
+    ULANGI
+        TampilkanMenuUtama()
+        BACA choice
+
+        PILIH choice
+            KASUS 1:
+                judul <- InputLine("Title  : ")
+                artis <- InputLine("Artist : ")
+                genre <- InputLine("Genre  : ")
+                BACA durasi
+                BACA rating
+                TambahKeLibrary(judul, artis, genre, durasi, rating)
+
+            KASUS 2:
+                TampilLibrary()
+                BACA id
+                HapusDariLibrary(id)
+
+            KASUS 3:
+                TampilLibrary()
+
+            KASUS 4:
+                BACA opsiCari
+                JIKA opsiCari = 1 MAKA
+                    key <- InputLine("Keyword title  : ")
+                    jumlah <- CariLaguByJudul(key, AksiPrint)
+                SELAINNYA JIKA opsiCari = 2 MAKA
+                    key <- InputLine("Keyword artist : ")
+                    jumlah <- CariLaguByArtis(key, AksiPrint)
+                ENDJIKA
+
+            KASUS 5:
+                TampilLibrary()
+                BACA id
+                TambahKePlaylist(id)
+                JIKA currentSong = null MAKA
+                    currentSong <- playlistHead
+                ENDJIKA
+
+            KASUS 6:
+                TampilPlaylist()
+                JIKA playlistHead != null MAKA
+                    BACA id
+                    HapusDariPlaylist(id)
+                ENDJIKA
+
+            KASUS 7:
+                TampilPlaylist()
+                JIKA playlistHead != null MAKA
+                    JIKA currentSong = null MAKA
+                        currentSong <- playlistHead
+                    ENDJIKA
+                    CetakLagu(currentSong)
+                    BACA nav
+                    JIKA nav = 1 MAKA
+                        PlaylistNext(currentSong)
+                    SELAINNYA JIKA nav = 2 MAKA
+                        PlaylistPrev(currentSong)
+                    ENDJIKA
+                ENDJIKA
+
+            KASUS 8:
+                TampilLibrary()
+                BACA id
+                Enqueue(id)
+                TampilQueue()
+
+            KASUS 9:
+                Dequeue()
+                TampilQueue()
+
+            KASUS 10:
+                JIKA circularHead = null MAKA
+                    BuildCircularDariPlaylist()
+                ENDJIKA
+                PlayNextCircular()
+
+            KASUS 11:
+                TampilHistory()
+
+            KASUS 12:
+                TampilHistory()
+                JIKA stackTop = null MAKA
+                    TULIS "Riwayat kosong, tidak bisa pop."
+                SELAINNYA
+                    PopHistory()
+                ENDJIKA
+
+            KASUS 0:
+                TULIS "Sampai jumpa!"
+
+            DEFAULT:
+                TULIS "Pilihan tidak valid."
+        AKHIRPILIH
+    SAMPAI choice = 0
+
+    Cleanup()
+SELESAI
